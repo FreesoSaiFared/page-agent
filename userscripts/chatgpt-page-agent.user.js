@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT ↔ Page Agent Bridge
 // @namespace    https://github.com/FreesoSaiFared/page-agent
-// @version      0.2.0
+// @version      0.2.1
 // @description  Runs Page Agent from ChatGPT and uses the ChatGPT web session as Page Agent's LLM.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -234,11 +234,13 @@
 	async function sendChatGPTMessage(message) {
 		for (let attempt = 0; attempt < 200; attempt += 1) {
 			const editor = findComposer()
-			const sendButton = document.querySelector(
-				'button[data-testid="send-button"], button[aria-label="Send prompt"], button[aria-label="Send message"]'
-			)
-			if (editor && sendButton && !sendButton.disabled) {
-				setComposerText(editor, message)
+			if (!editor) {
+				await new Promise((resolve) => setTimeout(resolve, 100))
+				continue
+			}
+
+			setComposerText(editor, message)
+			for (let sendAttempt = 0; sendAttempt < 50; sendAttempt += 1) {
 				await new Promise((resolve) => setTimeout(resolve, 100))
 				const readyButton = document.querySelector(
 					'button[data-testid="send-button"], button[aria-label="Send prompt"], button[aria-label="Send message"]'
@@ -248,7 +250,7 @@
 					return true
 				}
 			}
-			await new Promise((resolve) => setTimeout(resolve, 100))
+			return false
 		}
 		return false
 	}

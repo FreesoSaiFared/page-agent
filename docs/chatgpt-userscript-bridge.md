@@ -32,7 +32,7 @@ The API-key provider path remains available only when explicitly started with `P
 
 ## 2. Install and arm the ScriptCat userscript
 
-Install `userscripts/chatgpt-page-agent.user.js` in ScriptCat.
+Install `userscripts/chatgpt-page-agent.user.js` in ScriptCat. In `chrome://extensions`, enable **Developer mode** and **Allow User Scripts** for ScriptCat when Chrome requires them.
 
 In the userscript menu:
 
@@ -78,4 +78,4 @@ All endpoints require `Authorization: Bearer <PAGE_AGENT_BRIDGE_TOKEN>`.
 
 ## Present boundary
 
-The bridge itself is complete, but the final browser acceptance test requires the local Chrome/ScriptCat/Page Agent extension environment. A scheduled ChatGPT Automation also cannot wake a closed local browser: the MCP process, Page Agent hub, and a ChatGPT tab with **ChatGPT-web LLM in this tab** enabled must remain running.
+The complete browser path has been acceptance-tested with ScriptCat 1.4.0 and Page Agent 1.12.2: a ChatGPT tab supplied a valid `AgentOutput` response, Page Agent completed the task, and the result returned through the bridge. A scheduled ChatGPT Automation still cannot wake a closed local browser: the MCP process, Page Agent hub, and a ChatGPT tab with **ChatGPT-web LLM in this tab** enabled must remain running.
