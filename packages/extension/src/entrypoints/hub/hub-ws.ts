@@ -218,11 +218,30 @@ export function useHubWs(
 			Number(wsPort),
 			{
 				onExecute: async (task, incomingConfig) => {
-					const { execute, configure, config } = latestRef.current
 					if (incomingConfig) {
-						await configure({ ...config, ...incomingConfig } as ExtConfig)
+						const matches = () => {
+							const current = latestRef.current.config as Record<string, unknown> | null
+							return Boolean(
+								current &&
+								Object.entries(incomingConfig).every(([key, value]) => current[key] === value)
+							)
+						}
+
+						if (!matches()) {
+							await latestRef.current.configure({
+								...latestRef.current.config,
+								...incomingConfig,
+							} as ExtConfig)
+
+							for (let attempt = 0; attempt < 200 && !matches(); attempt++) {
+								await new Promise((resolve) => setTimeout(resolve, 10))
+							}
+							if (!matches()) throw new Error('Timed out while applying Page Agent LLM config.')
+							await new Promise((resolve) => setTimeout(resolve, 0))
+						}
 					}
-					const result = await execute(task)
+
+					const result = await latestRef.current.execute(task)
 					return { success: result.success, data: result.data }
 				},
 				onStop: () => latestRef.current.stop(),
