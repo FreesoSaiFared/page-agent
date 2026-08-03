@@ -2,6 +2,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { exec } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { platform } from 'node:os'
 import * as z from 'zod/v4'
@@ -11,17 +12,35 @@ import { HubBridge } from './hub-bridge.js'
 const env = process.env
 const port = parseInt(env.PORT || '38401')
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const bridgeToken = env.PAGE_AGENT_BRIDGE_TOKEN || randomBytes(24).toString('base64url')
 
 /** @type {Record<string, string>} */
-const llmConfig = {}
-if (env.LLM_BASE_URL) llmConfig.baseURL = env.LLM_BASE_URL
-if (env.LLM_MODEL_NAME) llmConfig.model = env.LLM_MODEL_NAME
-if (env.LLM_API_KEY) llmConfig.apiKey = env.LLM_API_KEY
+const apiLlmConfig = {}
+if (env.LLM_BASE_URL) apiLlmConfig.baseURL = env.LLM_BASE_URL
+if (env.LLM_MODEL_NAME) apiLlmConfig.model = env.LLM_MODEL_NAME
+if (env.LLM_API_KEY) apiLlmConfig.apiKey = env.LLM_API_KEY
 
-// --- Hub bridge (HTTP + WebSocket) ---
+const browserLlmConfig = {
+	baseURL: `http://localhost:${port}/v1`,
+	model: 'chatgpt-web',
+	apiKey: bridgeToken,
+}
+const useApiLlm = env.PAGE_AGENT_LLM_MODE === 'api'
+if (useApiLlm && (!apiLlmConfig.baseURL || !apiLlmConfig.model)) {
+	throw new Error('PAGE_AGENT_LLM_MODE=api requires LLM_BASE_URL and LLM_MODEL_NAME.')
+}
+const defaultConfig = useApiLlm ? apiLlmConfig : browserLlmConfig
 
-const hub = new HubBridge(port)
+// --- Hub bridge (HTTP + WebSocket + ChatGPT web LLM) ---
+
+const hub = new HubBridge(port, { bridgeToken, defaultConfig })
 await hub.start()
+console.error(`[page-agent-mcp] Userscript bridge token: ${bridgeToken}`)
+console.error(
+	useApiLlm
+		? '[page-agent-mcp] LLM mode: OpenAI-compatible API'
+		: '[page-agent-mcp] LLM mode: ChatGPT web userscript'
+)
 
 // Open launcher in default browser
 const url = `http://localhost:${port}`
@@ -48,8 +67,7 @@ mcpServer.registerTool(
 	},
 	async ({ task }) => {
 		try {
-			const config = Object.keys(llmConfig).length > 0 ? llmConfig : undefined
-			const result = await hub.executeTask(task, config)
+			const result = await hub.executeTask(task, defaultConfig)
 			return {
 				content: [
 					{
